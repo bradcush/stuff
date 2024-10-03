@@ -30,7 +30,14 @@ See `./stuff --help` for commands and options
 
 I've tried to make things as intuitive as I can with sane defaults. All
 documentation related to usage is included in the tool itself which can be
-accessed through the `--help` flag corresponding to optional subcommands.
+accessed through the `--help` flag corresponding to optional commands.
+
+## Architecture
+
+Parsing options and commands is done in a hierarchical, two-step manner where
+global (hidden) options are parsed first and then command options. This gives
+flexibility but also requires care in how the two may affect one another. Keep
+in mind that top-level hidden options are meant for internal use only.
 
 ## Support
 

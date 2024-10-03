@@ -1,4 +1,4 @@
-#include "options.h"
+#include "none.h"
 #include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -6,37 +6,28 @@
 #include <unistd.h>
 
 /**
- * Print help information on how to use
- * command-line flags and accepted arguments
+ * Setting of options when the program starts based
+ * on command-line arguments without a command
  */
-void print_usage(char **argv) {
-  printf("Usage: %s [options]\n\n", argv[0]);
-  printf("Command-line dotfiles management\n\n");
-  printf("Options:\n");
-  printf("  -h, --help           Print this help and exit\n");
-  printf("  -v, --verbose        Print verbose logging output\n");
-  printf("  -t, --test           Test flags accepting arguments\n\n");
-}
-
-/**
- * Setting of options when the program
- * starts based on command line arguments
- */
-int set_options(int argc, char **argv, opts_t *opts) {
+int set_none_options(int argc, char **argv, none_opts_t *opts) {
   int option;
-  const char *short_opt = "hlvt:";
+  const char *short_opt = "dhvt:";
   // Allows handling for single characters
+  // debug option is a hidden global
   struct option long_opt[] = {
+      {"debug", no_argument, NULL, 'd'},
       {"help", no_argument, NULL, 'h'},
-      {"verbose", no_argument, NULL, 'v'},
+      {"version", no_argument, NULL, 'v'},
       {"test", required_argument, NULL, 't'},
       {NULL, 0, NULL, 0}
   };
   while ((option = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
     switch (option) {
+      case 'd':
+        // Ignore hidden debug
+        break;
       case 'h':
         opts->hflag = 1;
-        print_usage(argv);
         break;
       case 'v':
         opts->vflag = 1;
@@ -72,21 +63,13 @@ int set_options(int argc, char **argv, opts_t *opts) {
         abort();
     }
   }
-  // Print remaining not options
-  if (optind < argc) {
-    printf("non-option ARGV-elements: ");
-    while (optind < argc) {
-      printf("%s ", argv[optind++]);
-    }
-    putchar('\n');
-  }
   return 0;
 }
 
 /**
- * Printing to ensure corrrectness
+ * Printing to ensure correctness
  */
-void print_options(int argc, char **argv, opts_t *opts) {
+void print_none_options(int argc, char **argv, none_opts_t *opts) {
   printf(
       "hflag = %d, vflag = %d, tvalue = %s\n",
       opts->hflag,

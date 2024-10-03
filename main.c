@@ -1,16 +1,17 @@
-#include "options.h"
+#include "command.h"
+#include "options/hidden.h"
+#include <getopt.h>
 
 // Entry point for stuff
 int main(int argc, char **argv) {
-  opts_t opts = {0, 0, NULL};
-  char default_mode = 'A';
-  opts.tvalue = &default_mode;
-  int code = set_options(argc, argv, &opts);
-  if (code != 0) {
-    return code;
+  hidden_opts_t opts = {0};
+  int subind = 0;
+  set_hidden_options(argc, argv, &opts, &subind);
+  // Simpler string default
+  char *command = "";
+  if (argc > subind) {
+    command = argv[subind];
   }
-  if (opts.vflag) {
-    print_options(argc, argv, &opts);
-  }
+  treat_command(command, argc, argv, &opts);
   return 0;
 }
