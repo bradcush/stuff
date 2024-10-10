@@ -9,7 +9,7 @@ typedef struct list_opts {
   int hflag;
 } list_opts_t;
 
-int set_list_options(int argc, char **argv, list_opts_t *opts);
+int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind);
 
 void print_list_options(int argc, char **argv, list_opts_t *opts);
 

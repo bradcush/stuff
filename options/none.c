@@ -45,7 +45,10 @@ int set_none_options(int argc, char **argv, none_opts_t *opts) {
         if (tvalue) {
           opts->tvalue = tvalue;
         } else {
-          fprintf(stderr, "Invalid -t argument `%s`.\n", optarg);
+          // Seems to be skipping options directly after due
+          // to something in hidden options so remove hidden
+          // options or arguments accepting values
+          fprintf(stderr, "Invalid -t argument `%s'.\n", optarg);
           return 1;
         }
         break;

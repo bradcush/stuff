@@ -9,7 +9,7 @@
  * Setting of options when the program starts based on
  * command-line arguments given the list command
  */
-int set_list_options(int argc, char **argv, none_opts_t *opts) {
+int set_list_options(int argc, char **argv, none_opts_t *opts, int *subind) {
   int option;
   const char *short_opt = "dh";
   // Allows handling for single characters
@@ -38,6 +38,7 @@ int set_list_options(int argc, char **argv, none_opts_t *opts) {
         abort();
     }
   }
+  *subind = optind;
   return 0;
 }
 

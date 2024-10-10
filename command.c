@@ -24,10 +24,7 @@ command_t map_command(char *command) {
       return map[i].val;
     }
   }
-  // Everything else is deemed invalid but once we
-  // accept arguments we'll have to be more rigorous
-  fprintf(stderr, "Invalid command `%s`\n", command);
-  exit(EXIT_FAILURE);
+  return NONE;
 }
 
 /**
@@ -104,13 +101,20 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
  */
 void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
   list_opts_t opts = {0};
+  int subind = 0;
   // Not throwing for invalid subcommand
-  if (set_list_options(argc, argv, &opts) != 0) {
+  if (set_list_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting list options\n");
     exit(EXIT_FAILURE);
   }
   if (hopts->dflag) {
     print_list_options(argc, argv, &opts);
+  }
+  // Current should be LIST so next
+  // is invalid if within limit
+  if (++subind < argc) {
+    fprintf(stderr, "Invalid list non-option %s\n", argv[subind]);
+    exit(EXIT_FAILURE);
   }
   // We give priority to certain options
   // and stop executing depending
