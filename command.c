@@ -72,12 +72,18 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
   none_opts_t opts = {0, 0, NULL};
   char default_mode = 'A';
   opts.tvalue = &default_mode;
-  if (set_none_options(argc, argv, &opts) != 0) {
-    fprintf(stderr, "Failure setting none options\n");
+  int subind = 0;
+  if (set_none_options(argc, argv, &opts, &subind) != 0) {
+    fprintf(stderr, "Failure setting options\n");
     exit(EXIT_FAILURE);
   }
   if (hopts->dflag) {
     print_none_options(argc, argv, &opts);
+  }
+  // Not supporting non-options
+  if (subind < argc) {
+    fprintf(stderr, "Invalid non-option `%s'\n", argv[subind]);
+    exit(EXIT_FAILURE);
   }
   // We give priority to certain options
   // and stop executing depending
@@ -113,7 +119,7 @@ void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
   // Current should be LIST so next
   // is invalid if within limit
   if (++subind < argc) {
-    fprintf(stderr, "Invalid list non-option %s\n", argv[subind]);
+    fprintf(stderr, "Invalid list non-option `%s'\n", argv[subind]);
     exit(EXIT_FAILURE);
   }
   // We give priority to certain options

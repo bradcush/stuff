@@ -11,7 +11,7 @@ typedef struct none_opts {
   char *tvalue;
 } none_opts_t;
 
-int set_none_options(int argc, char **argv, none_opts_t *opts);
+int set_none_options(int argc, char **argv, none_opts_t *opts, int *subind);
 
 void print_none_options(int argc, char **argv, none_opts_t *opts);
 

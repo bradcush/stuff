@@ -9,7 +9,7 @@
  * Setting of options when the program starts based
  * on command-line arguments without a command
  */
-int set_none_options(int argc, char **argv, none_opts_t *opts) {
+int set_none_options(int argc, char **argv, none_opts_t *opts, int *subind) {
   int option;
   const char *short_opt = "dhvt:";
   // Allows handling for single characters
@@ -66,6 +66,7 @@ int set_none_options(int argc, char **argv, none_opts_t *opts) {
         abort();
     }
   }
+  *subind = optind;
   return 0;
 }
 
