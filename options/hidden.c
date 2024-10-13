@@ -15,13 +15,18 @@ int set_hidden_options(
   // Disable errors globally
   // for hidden options
   opterr = 0;
-  const char *short_opt = "d";
+  const char *short_opt = "dt:";
   // Allows handling for single characters
   struct option long_opt[] = {
-      {"debug", no_argument, NULL, 'd'}, {NULL, 0, NULL, 0}
+      {"debug", no_argument, NULL, 'd'},
+      {"test", no_argument, NULL, 't'},
+      {NULL, 0, NULL, 0}
   };
   while ((option = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
     switch (option) {
+      case 't':
+        // Ignore none test
+        break;
       case 'd':
         opts->dflag = 1;
         break;

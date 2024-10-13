@@ -39,6 +39,22 @@ global (hidden) options are parsed first and then command options. This gives
 flexibility but also requires care in how the two may affect one another. Keep
 in mind that top-level hidden options are meant for internal use only.
 
+## Quirks
+
+Option parsing using `getopt` has quirks when used in a hierarchical manner
+which we code around for now. Some global options may interact with some
+command options and vice versa.
+
+If command options take values then global options need to be aware to avoid
+unwanted behaviour. If we specify a global option then all command options need
+to also be aware to avoid throwing. These cases are expected to be few in
+number so we live with some sharp edges for the time being to support them
+until we find a better way.
+
+We also parse commands using `optind` which means they don't have to directly
+follow the program name when specified. We consider this behaviour a feature
+and not a bug for the time being.
+
 ## Support
 
 The goal is that stuff will be available on most systems but for now I've only
