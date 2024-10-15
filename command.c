@@ -4,9 +4,20 @@
 #include "options/none.h"
 #include <fnmatch.h>
 #include <ftw.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+
+// Printing colored output
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN "\x1b[36m"
+#define ANSI_COLOR_RESET "\x1b[0m"
 
 const char *CURRENT_DIRECTORY = ".";
 
@@ -52,15 +63,52 @@ void print_list_usage(char **argv) {
 }
 
 /**
+ * Read stats for a given file
+ */
+void get_file_stats(char *filename, struct stat *sb) {
+  if (stat(filename, sb) == -1) {
+    // Using perror until I understand
+    perror("unknown lstat issue");
+    exit(EXIT_FAILURE);
+  }
+  // We only want to handle certain files
+  // directory, symlink, regular file
+  int mode = sb->st_mode & S_IFMT;
+  switch (mode) {
+    case S_IFDIR:
+    case S_IFLNK:
+    case S_IFREG:
+      // Allowed list
+      break;
+    default:
+      fprintf(stderr, "Unsupported file mode `%d'", mode);
+      exit(EXIT_FAILURE);
+  }
+}
+
+/**
  * Handle a directory entry by filtering ignored
  * directories and logging the rest to stdout
  */
 int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
-  // Hardcoding hidden git directory
-  char *pattern = "!(./.git*)";
+  // Hardcoding hidden git and current directory
+  // but should move to persisted file input
+  char *pattern = "!(./.git*|.)";
   int flags = FNM_EXTMATCH;
   if (fnmatch(pattern, fpath, flags) == 0) {
-    printf("%s\n", fpath);
+    struct stat sb;
+    get_file_stats((char *)fpath, &sb);
+    // Just print the number of links and
+    // highlight them in green for now
+    if (sb.st_nlink > 1) {
+      printf(
+          ANSI_COLOR_GREEN "%2ju %s\n" ANSI_COLOR_RESET,
+          (uintmax_t)sb.st_nlink,
+          fpath
+      );
+    } else {
+      printf("%2ju %s\n", (uintmax_t)sb.st_nlink, fpath);
+    }
   }
   return 0;
 }
