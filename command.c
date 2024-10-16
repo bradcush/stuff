@@ -67,8 +67,8 @@ void print_list_usage(char **argv) {
  */
 void get_file_stats(char *filename, struct stat *sb) {
   if (stat(filename, sb) == -1) {
-    // Using perror until I understand
-    perror("unknown lstat issue");
+    // Clean way of outputting errno
+    perror("unknown stat issue");
     exit(EXIT_FAILURE);
   }
   // We only want to handle certain files
@@ -87,6 +87,43 @@ void get_file_stats(char *filename, struct stat *sb) {
 }
 
 /**
+ * Read stats for an expected link which often
+ * won't exist but we want to handle nicely
+ */
+int get_link_stats(char *filename, struct stat *sb) {
+  if (lstat(filename, sb) == -1) {
+    // Assuming no such file or directory
+    return 1;
+  }
+  // We only want to handle certain files
+  // directory, symlink, regular file
+  int mode = sb->st_mode & S_IFMT;
+  switch (mode) {
+    case S_IFDIR:
+    case S_IFLNK:
+    case S_IFREG:
+      // Allowed list
+      break;
+    default:
+      fprintf(stderr, "Unsupported file mode `%d'", mode);
+      exit(EXIT_FAILURE);
+  }
+  return 0;
+}
+
+/**
+ * Make the system path for some local path where a first version
+ * doesn't do special mapping. Allocates memory for the returned
+ * pointer which needs to be freed by the caller.
+ */
+char *make_system_path(const char *fpath) {
+  // Just removing the expected dot for now
+  int path_size = strlen(fpath) * sizeof(char);
+  char *spath = (char *)malloc(path_size);
+  return strcpy(spath, ++fpath);
+}
+
+/**
  * Handle a directory entry by filtering ignored
  * directories and logging the rest to stdout
  */
@@ -96,19 +133,25 @@ int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
   char *pattern = "!(./.git*|.)";
   int flags = FNM_EXTMATCH;
   if (fnmatch(pattern, fpath, flags) == 0) {
-    struct stat sb;
-    get_file_stats((char *)fpath, &sb);
+    struct stat fsb, lsb;
+    // Not doing anything with these stats
+    get_file_stats((char *)fpath, &fsb);
+    char *spath = make_system_path(fpath);
+    int errlink = get_link_stats((char *)spath, &lsb);
+    char *spathnorm = errlink ? "x" : spath;
     // Just print the number of links and
     // highlight them in green for now
-    if (sb.st_nlink > 1) {
+    if (!errlink) {
       printf(
-          ANSI_COLOR_GREEN "%2ju %s\n" ANSI_COLOR_RESET,
-          (uintmax_t)sb.st_nlink,
-          fpath
+          ANSI_COLOR_GREEN "%3ju %s -> %s\n" ANSI_COLOR_RESET,
+          (uintmax_t)lsb.st_nlink,
+          fpath,
+          spathnorm
       );
     } else {
-      printf("%2ju %s\n", (uintmax_t)sb.st_nlink, fpath);
+      printf("%3ju %s -> %s\n", (uintmax_t)0, fpath, spathnorm);
     }
+    free(spath);
   }
   return 0;
 }
