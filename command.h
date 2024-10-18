@@ -5,7 +5,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-typedef enum command { LIST, NONE } command_t;
+typedef enum command { NONE, INIT, LIST } command_t;
 
 void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts);
 

@@ -1,5 +1,6 @@
 #include "command.h"
 #include "options/hidden.h"
+#include "options/init.h"
 #include "options/list.h"
 #include "options/none.h"
 #include <fnmatch.h>
@@ -20,6 +21,8 @@
 #define ANSI_COLOR_RESET "\x1b[0m"
 
 const char *CURRENT_DIRECTORY = ".";
+const char *STUFF_DIRECTORY = ".stuff";
+const char *LINKS_PATH = ".stuff/links";
 
 /**
  * Map a command to a better suited enum
@@ -28,7 +31,7 @@ command_t map_command(char *command) {
   const struct {
     command_t val;
     const char *str;
-  } map[] = {{LIST, "list"}, {NONE, ""}};
+  } map[] = {{NONE, ""}, {INIT, "init"}, {LIST, "list"}};
   size_t length = sizeof(map) / sizeof(map[0]);
   for (int i = 0; i < length; i++) {
     if (!strcmp(command, map[i].str)) {
@@ -45,10 +48,24 @@ command_t map_command(char *command) {
 void print_none_usage(char **argv) {
   printf("Usage: %s <command> [options]\n\n", argv[0]);
   printf("Command-line dotfiles management\n\n");
+  printf("Commands:\n");
+  printf("  init                 Init stuff for the first time\n");
+  printf("  list                 List all tracked dotfiles\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
   printf("  -v, --version        Print the current version number\n");
   printf("  -t, --test           Test flags accepting arguments\n\n");
+}
+
+/**
+ * Print help information for init command
+ * command-line flags and accepted arguments
+ */
+void print_init_usage(char **argv) {
+  printf("Usage: %s init [options]\n\n", argv[0]);
+  printf("Init stuff for the first time\n\n");
+  printf("Options:\n");
+  printf("  -h, --help           Print this help and exit\n\n");
 }
 
 /**
@@ -104,9 +121,9 @@ char *make_link_path(const char *fpath) {
  * directories and logging the rest to stdout
  */
 int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
-  // Hardcoding hidden git and current directory
-  // but should move to persisted file input
-  char *pattern = "!(./.git*|.)";
+  // Hardcoding hidden git, stuff, and current directory
+  // but should move to persisted file input later
+  char *pattern = "!(./.git*|.stuff|.)";
   int flags = FNM_EXTMATCH;
   if (fnmatch(pattern, fpath, flags) == 0) {
     struct stat fsb, lsb;
@@ -168,6 +185,44 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
 }
 
 /**
+ * Handle INIT command
+ */
+void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
+  init_opts_t opts = {0};
+  int subind = 0;
+  // Not throwing for invalid subcommand
+  if (set_init_options(argc, argv, &opts, &subind) != 0) {
+    fprintf(stderr, "Failure setting init options\n");
+    exit(EXIT_FAILURE);
+  }
+  if (hopts->dflag) {
+    print_init_options(argc, argv, &opts);
+  }
+  // Current should be INIT so next
+  // is invalid if within limit
+  if (++subind < argc) {
+    fprintf(stderr, "Invalid init non-option `%s'\n", argv[subind]);
+    exit(EXIT_FAILURE);
+  }
+  // We give priority to certain options
+  // and stop executing depending
+  if (opts.hflag) {
+    print_init_usage(argv);
+    exit(EXIT_SUCCESS);
+  }
+  struct stat sb = {0};
+  if (stat(STUFF_DIRECTORY, &sb) != -1) {
+    fprintf(stderr, "stuff already initialized\n");
+    exit(EXIT_FAILURE);
+  }
+  uint user_permission = 0700;
+  mkdir(STUFF_DIRECTORY, user_permission);
+  FILE *file = fopen(LINKS_PATH, "w");
+  fclose(file);
+  printf("stuff initialized\n");
+}
+
+/**
  * Handle LIST command
  */
 void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
@@ -207,6 +262,9 @@ void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts) {
   switch (map_command(command)) {
     case NONE:
       treat_none(argc, argv, hopts);
+      break;
+    case INIT:
+      treat_init(argc, argv, hopts);
       break;
     case LIST:
       treat_list(argc, argv, hopts);

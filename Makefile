@@ -1,6 +1,7 @@
 DEPS = main.c \
 	options/hidden.c \
 	options/none.c \
+	options/init.c \
 	options/list.c \
 	command.c
 
