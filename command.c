@@ -63,35 +63,11 @@ void print_list_usage(char **argv) {
 }
 
 /**
- * Read stats for a given file
+ * Read file stats for a file or an expected link which
+ * often won't exist but we want to handle nicely
  */
-void get_file_stats(char *filename, struct stat *sb) {
+int get_file_stats(char *filename, struct stat *sb) {
   if (stat(filename, sb) == -1) {
-    // Clean way of outputting errno
-    perror("unknown stat issue");
-    exit(EXIT_FAILURE);
-  }
-  // We only want to handle certain files
-  // directory, symlink, regular file
-  int mode = sb->st_mode & S_IFMT;
-  switch (mode) {
-    case S_IFDIR:
-    case S_IFLNK:
-    case S_IFREG:
-      // Allowed list
-      break;
-    default:
-      fprintf(stderr, "Unsupported file mode `%d'", mode);
-      exit(EXIT_FAILURE);
-  }
-}
-
-/**
- * Read stats for an expected link which often
- * won't exist but we want to handle nicely
- */
-int get_link_stats(char *filename, struct stat *sb) {
-  if (lstat(filename, sb) == -1) {
     // Assuming no such file or directory
     return 1;
   }
@@ -116,11 +92,11 @@ int get_link_stats(char *filename, struct stat *sb) {
  * doesn't do special mapping. Allocates memory for the returned
  * pointer which needs to be freed by the caller.
  */
-char *make_system_path(const char *fpath) {
+char *make_link_path(const char *fpath) {
   // Just removing the expected dot for now
   int path_size = strlen(fpath) * sizeof(char);
-  char *spath = (char *)malloc(path_size);
-  return strcpy(spath, ++fpath);
+  char *lpath = (char *)malloc(path_size);
+  return strcpy(lpath, ++fpath);
 }
 
 /**
@@ -134,24 +110,22 @@ int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
   int flags = FNM_EXTMATCH;
   if (fnmatch(pattern, fpath, flags) == 0) {
     struct stat fsb, lsb;
-    // Not doing anything with these stats
-    get_file_stats((char *)fpath, &fsb);
-    char *spath = make_system_path(fpath);
-    int errlink = get_link_stats((char *)spath, &lsb);
-    char *spathnorm = errlink ? "x" : spath;
-    // Just print the number of links and
-    // highlight them in green for now
-    if (!errlink) {
-      printf(
-          ANSI_COLOR_GREEN "%3ju %s -> %s\n" ANSI_COLOR_RESET,
-          (uintmax_t)lsb.st_nlink,
-          fpath,
-          spathnorm
-      );
-    } else {
-      printf("%3ju %s -> %s\n", (uintmax_t)0, fpath, spathnorm);
+    int errfile = get_file_stats((char *)fpath, &fsb);
+    if (errfile) {
+      fprintf(stderr, "Non-existent file `%s'", fpath);
+      exit(EXIT_FAILURE);
     }
-    free(spath);
+    char *lpath = make_link_path(fpath);
+    int errlink = get_file_stats((char *)lpath, &lsb);
+    char *spathnorm = errlink ? "x" : lpath;
+    // Using fstat for both files and links to see if
+    // the actual file stats are the same for both
+    if (!errlink && fsb.st_ino == lsb.st_ino) {
+      printf(ANSI_COLOR_GREEN "%s -> %s\n" ANSI_COLOR_RESET, fpath, spathnorm);
+    } else {
+      printf("%s -> %s\n", fpath, spathnorm);
+    }
+    free(lpath);
   }
   return 0;
 }
