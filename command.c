@@ -24,6 +24,8 @@ const char *CURRENT_DIRECTORY = ".";
 const char *STUFF_DIRECTORY = ".stuff";
 const char *LINKS_PATH = ".stuff/links";
 
+uint USER_READ = 0600;
+
 /**
  * Map a command to a better suited enum
  */
@@ -190,7 +192,6 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
 void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
   init_opts_t opts = {0};
   int subind = 0;
-  // Not throwing for invalid subcommand
   if (set_init_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting init options\n");
     exit(EXIT_FAILURE);
@@ -215,8 +216,7 @@ void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
     fprintf(stderr, "stuff already initialized\n");
     exit(EXIT_FAILURE);
   }
-  uint user_permission = 0700;
-  mkdir(STUFF_DIRECTORY, user_permission);
+  mkdir(STUFF_DIRECTORY, USER_READ);
   FILE *file = fopen(LINKS_PATH, "w");
   fclose(file);
   printf("stuff initialized\n");
@@ -228,7 +228,6 @@ void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
 void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
   list_opts_t opts = {0};
   int subind = 0;
-  // Not throwing for invalid subcommand
   if (set_list_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting list options\n");
     exit(EXIT_FAILURE);
