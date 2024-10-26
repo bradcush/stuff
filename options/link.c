@@ -1,4 +1,4 @@
-#include "list.h"
+#include "link.h"
 #include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -7,9 +7,9 @@
 
 /**
  * Setting of options when the program starts based on
- * command-line arguments given the list command
+ * command-line arguments given the link command
  */
-int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind) {
+int set_link_options(int argc, char **argv, link_opts_t *opts, int *subind) {
   int option;
   const char *short_opt = "dh";
   // Allows handling for single characters
@@ -45,7 +45,7 @@ int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind) {
 /**
  * Printing to ensure correctness
  */
-void print_list_options(int argc, char **argv, list_opts_t *opts) {
+void print_link_options(int argc, char **argv, link_opts_t *opts) {
   printf("hflag = %d\n", opts->hflag);
   for (int index = optind; index < argc; index++) {
     printf("Non-option argument %s\n", argv[index]);

@@ -1,15 +1,18 @@
 #include "command.h"
 #include "options/hidden.h"
 #include "options/init.h"
+#include "options/link.h"
 #include "options/list.h"
 #include "options/none.h"
 #include <fnmatch.h>
 #include <ftw.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // Printing colored output
 #define ANSI_COLOR_RED "\x1b[31m"
@@ -24,7 +27,7 @@ const char *CURRENT_DIRECTORY = ".";
 const char *STUFF_DIRECTORY = ".stuff";
 const char *LINKS_PATH = ".stuff/links";
 
-uint USER_READ = 0600;
+uint USER_FULL = S_IREAD | S_IWRITE | S_IEXEC;
 
 /**
  * Map a command to a better suited enum
@@ -33,7 +36,7 @@ command_t map_command(char *command) {
   const struct {
     command_t val;
     const char *str;
-  } map[] = {{NONE, ""}, {INIT, "init"}, {LIST, "list"}};
+  } map[] = {{NONE, ""}, {INIT, "init"}, {LINK, "link"}, {LIST, "list"}};
   size_t length = sizeof(map) / sizeof(map[0]);
   for (int i = 0; i < length; i++) {
     if (!strcmp(command, map[i].str)) {
@@ -52,6 +55,7 @@ void print_none_usage(char **argv) {
   printf("Command-line dotfiles management\n\n");
   printf("Commands:\n");
   printf("  init                 Init stuff for the first time\n");
+  printf("  link                 Link local files or directories\n\n");
   printf("  list                 List all tracked dotfiles\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
@@ -68,6 +72,17 @@ void print_init_usage(char **argv) {
   printf("Init stuff for the first time\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n\n");
+}
+
+/**
+ * Print help information for link command
+ * command-line flags and accepted arguments
+ */
+void print_link_usage(char **argv) {
+  printf("Usage: %s link <path> [options]\n\n", argv[0]);
+  printf("Link local files or directories\n\n");
+  printf("Options:\n");
+  printf("  -h, --help           Print this help and exit\n");
 }
 
 /**
@@ -100,7 +115,7 @@ int get_file_stats(char *filename, struct stat *sb) {
       // Allowed list
       break;
     default:
-      fprintf(stderr, "Unsupported file mode `%d'", mode);
+      fprintf(stderr, "Unsupported file mode `%d'\n", mode);
       exit(EXIT_FAILURE);
   }
   return 0;
@@ -112,10 +127,23 @@ int get_file_stats(char *filename, struct stat *sb) {
  * pointer which needs to be freed by the caller.
  */
 char *make_link_path(const char *fpath) {
-  // Just removing the expected dot for now
-  int path_size = strlen(fpath) * sizeof(char);
-  char *lpath = (char *)malloc(path_size);
-  return strcpy(lpath, ++fpath);
+  // Should be directory where init called but we're only
+  // supporting calling from that directory for now
+  char prefix[PATH_MAX + 1];
+  realpath(".", prefix);
+  char fabspath[PATH_MAX + 1];
+  realpath(fpath, fabspath);
+  char *subloc = strstr(fabspath, prefix);
+  // Check explicit in case 0 location
+  if (subloc == NULL) {
+    fprintf(stderr, "File outside project `%s'\n", fpath);
+    exit(EXIT_FAILURE);
+  }
+  // Using strlen(prefix) factoring in terminator
+  // because the allocated length might be more
+  int linklen = strlen(fabspath) - strlen(prefix);
+  char *lpath = (char *)malloc(linklen * sizeof(char));
+  return strcpy(lpath, &fabspath[strlen(prefix)]);
 }
 
 /**
@@ -125,13 +153,13 @@ char *make_link_path(const char *fpath) {
 int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
   // Hardcoding hidden git, stuff, and current directory
   // but should move to persisted file input later
-  char *pattern = "!(./.git*|.stuff|.)";
+  char *pattern = "!(./.git*|./.stuff*|.)";
   int flags = FNM_EXTMATCH;
   if (fnmatch(pattern, fpath, flags) == 0) {
     struct stat fsb, lsb;
     int errfile = get_file_stats((char *)fpath, &fsb);
     if (errfile) {
-      fprintf(stderr, "Non-existent file `%s'", fpath);
+      fprintf(stderr, "Non-existent file `%s'\n", fpath);
       exit(EXIT_FAILURE);
     }
     char *lpath = make_link_path(fpath);
@@ -216,10 +244,93 @@ void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
     fprintf(stderr, "stuff already initialized\n");
     exit(EXIT_FAILURE);
   }
-  mkdir(STUFF_DIRECTORY, USER_READ);
+  mkdir(STUFF_DIRECTORY, USER_FULL);
   FILE *file = fopen(LINKS_PATH, "w");
   fclose(file);
   printf("stuff initialized\n");
+}
+
+/**
+ * Tracks a link meaning creating the link and
+ * persisting the mapping if the local file exists
+ */
+void track_link(char *fpath) {
+  // Check the file actually exists
+  struct stat fsb;
+  int errfile = get_file_stats(fpath, &fsb);
+  if (errfile) {
+    fprintf(stderr, "Non-existent path `%s'\n", fpath);
+    exit(EXIT_FAILURE);
+  }
+  char *lpath = make_link_path(fpath);
+  char labspath[PATH_MAX + 1];
+  realpath(lpath, labspath);
+  free(lpath);
+  // Can we access the links file to persist
+  if (access(LINKS_PATH, F_OK) != 0) {
+    perror("Issue accessing links");
+    fprintf(stderr, "Did you already run `./stuff init'?\n");
+    exit(EXIT_FAILURE);
+  }
+  char fabspath[PATH_MAX + 1];
+  realpath(fpath, fabspath);
+  // Specify the full path because locations are relative
+  // to directory of the link. This implicitly throws when
+  // trying to relink a file that's already linked.
+  int errlink = symlink(fabspath, labspath);
+  if (errlink) {
+    perror("Issue creating link");
+    fprintf(stderr, "Couldn't link file `%s'\n", fpath);
+    exit(EXIT_FAILURE);
+  }
+  // Not caring about sorting at the moment so
+  // we're just appending to the end of the list
+  FILE *file = fopen(LINKS_PATH, "a");
+  if (!file) {
+    perror("Issue persisting link");
+    fprintf(stderr, "Couldn't open file `%s'\n", LINKS_PATH);
+    exit(EXIT_FAILURE);
+  }
+  fprintf(file, "%s %s\n", fabspath, labspath);
+  fclose(file);
+}
+
+/**
+ * Handle LINK command
+ */
+void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
+  link_opts_t opts = {0};
+  int subind = 0;
+  if (set_link_options(argc, argv, &opts, &subind) != 0) {
+    fprintf(stderr, "Failure setting link options\n");
+    exit(EXIT_FAILURE);
+  }
+  if (hopts->dflag) {
+    print_link_options(argc, argv, &opts);
+  }
+  // Current should be LINK and next should be local path
+  // so if we don't have an argument just show the help
+  if (++subind >= argc) {
+    print_link_usage(argv);
+    exit(EXIT_SUCCESS);
+  }
+  // The next argument is invalid since
+  // we only accept a single argument
+  if (++subind < argc) {
+    fprintf(stderr, "Invalid link non-option `%s'\n", argv[subind]);
+    exit(EXIT_SUCCESS);
+  }
+  // Reset for future use
+  subind--;
+  // We give priority to certain options
+  // and stop executing depending
+  if (opts.hflag) {
+    print_link_usage(argv);
+    exit(EXIT_SUCCESS);
+  }
+  // Actually add the link
+  char *fpath = argv[subind];
+  track_link(fpath);
 }
 
 /**
@@ -264,6 +375,9 @@ void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts) {
       break;
     case INIT:
       treat_init(argc, argv, hopts);
+      break;
+    case LINK:
+      treat_link(argc, argv, hopts);
       break;
     case LIST:
       treat_list(argc, argv, hopts);

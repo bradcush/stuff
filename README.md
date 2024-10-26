@@ -26,6 +26,17 @@ Building from source only:
 
 See `./stuff --help` for commands and options
 
+### sudo
+
+Links might need to be created in directories that only the root user has
+access to for certain systems. You might need to run `sudo ./stuff` if you see
+errors due to "Permission denied".
+
+### Restrictions
+
+- Symlinking protected directories requires `sudo`
+- Commands must be run in the project root
+
 ## Documentation
 
 I've tried to make things as intuitive as I can with sane defaults. All
