@@ -53,9 +53,13 @@ command_t map_command(char *command) {
 void print_none_usage(char **argv) {
   printf("Usage: %s <command> [options]\n\n", argv[0]);
   printf("Command-line dotfiles management\n\n");
+  printf("stuff is a tool intended to make it simple to manage dotfiles\n"
+         "using a repository with version control. There is a list of\n"
+         "commands and options below that can be called with the additional\n"
+         "`--help' flag for more information.\n\n");
   printf("Commands:\n");
   printf("  init                 Init stuff for the first time\n");
-  printf("  link                 Link local files or directories\n\n");
+  printf("  link                 Link local files or directories\n");
   printf("  list                 List all tracked dotfiles\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
@@ -69,7 +73,11 @@ void print_none_usage(char **argv) {
  */
 void print_init_usage(char **argv) {
   printf("Usage: %s init [options]\n\n", argv[0]);
-  printf("Init stuff for the first time\n\n");
+  printf("Initialize stuff for the first time\n\n");
+  printf("stuff requires manual initialization before being run. This\n"
+         "creates the necessary `.stuff' hidden directory in your project\n"
+         "for persisting configuration, state, and other operational data.\n"
+         "Run `./stuff init' in the project root to initialize.\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
@@ -81,8 +89,11 @@ void print_init_usage(char **argv) {
 void print_link_usage(char **argv) {
   printf("Usage: %s link <path> [options]\n\n", argv[0]);
   printf("Link local files or directories\n\n");
+  printf("Linked files and folders are mapped to thier system location based\n"
+         "on the project directory structure with files in the root of the\n"
+         "project mapping to the root of the system.\n\n");
   printf("Options:\n");
-  printf("  -h, --help           Print this help and exit\n");
+  printf("  -h, --help           Print this help and exit\n\n");
 }
 
 /**
@@ -92,6 +103,8 @@ void print_link_usage(char **argv) {
 void print_list_usage(char **argv) {
   printf("Usage: %s list [options]\n\n", argv[0]);
   printf("List all tracked dotfiles\n\n");
+  printf("All files discovered from the project root are listed with any\n"
+         "linked files and their system location highlighted in green.\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
@@ -239,6 +252,7 @@ void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
     print_init_usage(argv);
     exit(EXIT_SUCCESS);
   }
+  // Check if already initialized
   struct stat sb = {0};
   if (stat(STUFF_DIRECTORY, &sb) != -1) {
     fprintf(stderr, "stuff already initialized\n");
