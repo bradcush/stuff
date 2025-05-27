@@ -3,8 +3,7 @@
 #ifndef NONE_OPTIONS_H
 #define NONE_OPTIONS_H
 
-// Options with defaults set
-// during program initialization
+// Commandless options
 typedef struct none_opts {
   int hflag;
   int vflag;

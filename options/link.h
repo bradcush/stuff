@@ -3,8 +3,7 @@
 #ifndef LINK_OPTIONS_H
 #define LINK_OPTIONS_H
 
-// Options with defaults set
-// during program initialization
+// Link command options
 typedef struct link_opts {
   int hflag;
 } link_opts_t;

@@ -1,6 +1,5 @@
 #include "command.h"
 #include "options/hidden.h"
-#include "options/init.h"
 #include "options/link.h"
 #include "options/list.h"
 #include "options/none.h"
@@ -37,13 +36,7 @@ command_t map_command(char *command) {
   const struct {
     command_t val;
     const char *str;
-  } map[] = {
-      {NONE, ""},
-      {INIT, "init"},
-      {LINK, "link"},
-      {LIST, "list"},
-      {UNLINK, "unlink"}
-  };
+  } map[] = {{NONE, ""}, {LINK, "link"}, {LIST, "list"}, {UNLINK, "unlink"}};
   size_t length = sizeof(map) / sizeof(map[0]);
   for (int i = 0; i < length; i++) {
     if (!strcmp(command, map[i].str)) {
@@ -65,7 +58,6 @@ void print_none_usage(char **argv) {
          "commands and options below that can be called with the additional\n"
          "`--help' flag for more information.\n\n");
   printf("Commands:\n");
-  printf("  init                 Init stuff for the first time\n");
   printf("  link                 Link local files or directories\n");
   printf("  list                 List all tracked dotfiles\n");
   printf("  unlink               Unlink local files or directories\n\n");
@@ -73,21 +65,6 @@ void print_none_usage(char **argv) {
   printf("  -h, --help           Print this help and exit\n");
   printf("  -v, --version        Print the current version number\n");
   printf("  -t, --test           Test flags accepting arguments\n\n");
-}
-
-/**
- * Print help information for init command
- * command-line flags and accepted arguments
- */
-void print_init_usage(char **argv) {
-  printf("Usage: %s init [options]\n\n", argv[0]);
-  printf("Initialize stuff for the first time\n\n");
-  printf("stuff requires manual initialization before being run. This\n"
-         "creates the necessary `.stuff' hidden directory in your project\n"
-         "for persisting configuration, state, and other operational data.\n"
-         "Run `./stuff init' in the project root to initialize.\n\n");
-  printf("Options:\n");
-  printf("  -h, --help           Print this help and exit\n\n");
 }
 
 /**
@@ -252,43 +229,6 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
 }
 
 /**
- * Handle INIT command
- */
-void treat_init(int argc, char **argv, hidden_opts_t *hopts) {
-  init_opts_t opts = {0};
-  int subind = 0;
-  if (set_init_options(argc, argv, &opts, &subind) != 0) {
-    fprintf(stderr, "Failure setting init options\n");
-    exit(EXIT_FAILURE);
-  }
-  if (hopts->dflag) {
-    print_init_options(argc, argv, &opts);
-  }
-  // Current should be INIT so next
-  // is invalid if within limit
-  if (++subind < argc) {
-    fprintf(stderr, "Invalid init non-option `%s'\n", argv[subind]);
-    exit(EXIT_FAILURE);
-  }
-  // We give priority to certain options
-  // and stop executing depending
-  if (opts.hflag) {
-    print_init_usage(argv);
-    exit(EXIT_SUCCESS);
-  }
-  // Check if already initialized
-  struct stat sb = {0};
-  if (stat(STUFF_DIRECTORY, &sb) != -1) {
-    fprintf(stderr, "stuff already initialized\n");
-    exit(EXIT_FAILURE);
-  }
-  mkdir(STUFF_DIRECTORY, USER_FULL);
-  FILE *file = fopen(LINKS_PATH, "w");
-  fclose(file);
-  printf("stuff initialized\n");
-}
-
-/**
  * Tracks a link meaning creating the link and
  * persisting the mapping if the local file exists
  */
@@ -298,12 +238,6 @@ void track_link(char *fpath) {
   int errfile = get_file_stats(fpath, &fsb);
   if (errfile) {
     fprintf(stderr, "Non-existent path `%s'\n", fpath);
-    exit(EXIT_FAILURE);
-  }
-  // Can we access the links file to persist
-  if (access(LINKS_PATH, F_OK) != 0) {
-    perror("Issue accessing links");
-    fprintf(stderr, "Did you already run `./stuff init'?\n");
     exit(EXIT_FAILURE);
   }
   char *lpath = make_link_path(fpath);
@@ -318,16 +252,6 @@ void track_link(char *fpath) {
     fprintf(stderr, "Couldn't link file `%s'\n", fpath);
     exit(EXIT_FAILURE);
   }
-  // Not caring about sorting at the moment so
-  // we're just appending to the end of the list
-  FILE *file = fopen(LINKS_PATH, "a");
-  if (!file) {
-    perror("Issue persisting link");
-    fprintf(stderr, "Couldn't open file `%s'\n", LINKS_PATH);
-    exit(EXIT_FAILURE);
-  }
-  fprintf(file, "%s %s\n", fabspath, lpath);
-  fclose(file);
   free(lpath);
 }
 
@@ -474,9 +398,6 @@ void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts) {
   switch (map_command(command)) {
     case NONE:
       treat_none(argc, argv, hopts);
-      break;
-    case INIT:
-      treat_init(argc, argv, hopts);
       break;
     case LINK:
       treat_link(argc, argv, hopts);

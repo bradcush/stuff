@@ -3,8 +3,7 @@
 #ifndef LIST_OPTIONS_H
 #define LIST_OPTIONS_H
 
-// Options with defaults set
-// during program initialization
+// List command options
 typedef struct list_opts {
   int hflag;
 } list_opts_t;

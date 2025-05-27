@@ -3,8 +3,7 @@
 #ifndef HIDDEN_OPTIONS_H
 #define HIDDEN_OPTIONS_H
 
-// Options with defaults set
-// during program initialization
+// Top-level hidden debug options
 typedef struct hidden_opts {
   int dflag;
 } hidden_opts_t;

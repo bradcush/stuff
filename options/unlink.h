@@ -3,8 +3,7 @@
 #ifndef UNLINK_OPTIONS_H
 #define UNLINK_OPTIONS_H
 
-// Options with defaults set
-// during program initialization
+// Unlink command options
 typedef struct unlink_opts {
   int hflag;
 } unlink_opts_t;
