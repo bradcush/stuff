@@ -4,6 +4,7 @@
 #include "options/link.h"
 #include "options/list.h"
 #include "options/none.h"
+#include "options/unlink.h"
 #include <fnmatch.h>
 #include <ftw.h>
 #include <limits.h>
@@ -36,7 +37,13 @@ command_t map_command(char *command) {
   const struct {
     command_t val;
     const char *str;
-  } map[] = {{NONE, ""}, {INIT, "init"}, {LINK, "link"}, {LIST, "list"}};
+  } map[] = {
+      {NONE, ""},
+      {INIT, "init"},
+      {LINK, "link"},
+      {LIST, "list"},
+      {UNLINK, "unlink"}
+  };
   size_t length = sizeof(map) / sizeof(map[0]);
   for (int i = 0; i < length; i++) {
     if (!strcmp(command, map[i].str)) {
@@ -60,7 +67,8 @@ void print_none_usage(char **argv) {
   printf("Commands:\n");
   printf("  init                 Init stuff for the first time\n");
   printf("  link                 Link local files or directories\n");
-  printf("  list                 List all tracked dotfiles\n\n");
+  printf("  list                 List all tracked dotfiles\n");
+  printf("  unlink               Unlink local files or directories\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
   printf("  -v, --version        Print the current version number\n");
@@ -89,9 +97,23 @@ void print_init_usage(char **argv) {
 void print_link_usage(char **argv) {
   printf("Usage: %s link <path> [options]\n\n", argv[0]);
   printf("Link local files or directories\n\n");
-  printf("Linked files and folders are mapped to thier system location based\n"
+  printf("Linked files and folders are mapped to their system location based\n"
          "on the project directory structure with files in the root of the\n"
          "project mapping to the root of the system.\n\n");
+  printf("Options:\n");
+  printf("  -h, --help           Print this help and exit\n\n");
+}
+
+/**
+ * Print help information for unlink command
+ * command-line flags and accepted arguments
+ */
+void print_unlink_usage(char **argv) {
+  printf("Usage: %s unlink <path> [options]\n\n", argv[0]);
+  printf("Unlink local files or directories\n\n");
+  printf("Linked files and folders are unmapped from their system location\n"
+         "based on the project directory structure with files in the root of\n"
+         "the project mapping to the root of the system.\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
@@ -155,7 +177,9 @@ char *make_link_path(const char *fpath) {
   // Using strlen(prefix) factoring in terminator
   // because the allocated length might be more
   int linklen = strlen(fabspath) - strlen(prefix);
-  char *lpath = (char *)malloc(linklen * sizeof(char));
+  // Come back to why we needed to add one
+  // I think it's because of NULL terminators
+  char *lpath = (char *)malloc((linklen + 1) * sizeof(char));
   return strcpy(lpath, &fabspath[strlen(prefix)]);
 }
 
@@ -276,22 +300,19 @@ void track_link(char *fpath) {
     fprintf(stderr, "Non-existent path `%s'\n", fpath);
     exit(EXIT_FAILURE);
   }
-  char *lpath = make_link_path(fpath);
-  char labspath[PATH_MAX + 1];
-  realpath(lpath, labspath);
-  free(lpath);
   // Can we access the links file to persist
   if (access(LINKS_PATH, F_OK) != 0) {
     perror("Issue accessing links");
     fprintf(stderr, "Did you already run `./stuff init'?\n");
     exit(EXIT_FAILURE);
   }
+  char *lpath = make_link_path(fpath);
   char fabspath[PATH_MAX + 1];
   realpath(fpath, fabspath);
   // Specify the full path because locations are relative
   // to directory of the link. This implicitly throws when
   // trying to relink a file that's already linked.
-  int errlink = symlink(fabspath, labspath);
+  int errlink = symlink(fabspath, lpath);
   if (errlink) {
     perror("Issue creating link");
     fprintf(stderr, "Couldn't link file `%s'\n", fpath);
@@ -305,8 +326,9 @@ void track_link(char *fpath) {
     fprintf(stderr, "Couldn't open file `%s'\n", LINKS_PATH);
     exit(EXIT_FAILURE);
   }
-  fprintf(file, "%s %s\n", fabspath, labspath);
+  fprintf(file, "%s %s\n", fabspath, lpath);
   fclose(file);
+  free(lpath);
 }
 
 /**
@@ -345,6 +367,72 @@ void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
   // Actually add the link
   char *fpath = argv[subind];
   track_link(fpath);
+}
+
+/**
+ * Unlinks a link, deletes a file, or removes
+ * a directory depending on the given path
+ */
+void attempt_unlink(char *fpath, unlink_opts_t *opts) {
+  // Check the file actually exists
+  // Only unlink if we have a preimage
+  struct stat fsb;
+  int errfile = get_file_stats(fpath, &fsb);
+  if (errfile) {
+    fprintf(stderr, "Non-existent file path `%s'\n", fpath);
+    exit(EXIT_FAILURE);
+  }
+  char *lpath = make_link_path(fpath);
+  // Check if the link actually exists
+  struct stat lsb;
+  int errlink = get_file_stats(lpath, &lsb);
+  if (errlink) {
+    fprintf(stderr, "Non-existent link path `%s'\n", lpath);
+    exit(EXIT_FAILURE);
+  }
+  // Specify the full path
+  remove(lpath);
+  free(lpath);
+  // Still need to unmap persisted file entries but
+  // we might decide to remove mapping altogether
+}
+
+/**
+ * Handle UNLINK command
+ */
+void treat_unlink(int argc, char **argv, hidden_opts_t *hopts) {
+  unlink_opts_t opts = {0};
+  int subind = 0;
+  if (set_unlink_options(argc, argv, &opts, &subind) != 0) {
+    fprintf(stderr, "Failure setting unlink options\n");
+    exit(EXIT_FAILURE);
+  }
+  if (hopts->dflag) {
+    print_unlink_options(argc, argv, &opts);
+  }
+  // Current should be UNLINK and next should be local path
+  // so if we don't have an argument just show the help
+  if (++subind >= argc) {
+    print_unlink_usage(argv);
+    exit(EXIT_SUCCESS);
+  }
+  // The next argument is invalid since
+  // we only accept a single argument
+  if (++subind < argc) {
+    fprintf(stderr, "Invalid unlink non-option `%s'\n", argv[subind]);
+    exit(EXIT_SUCCESS);
+  }
+  // Reset for future use
+  subind--;
+  // We give priority to certain options
+  // and stop executing depending
+  if (opts.hflag) {
+    print_unlink_usage(argv);
+    exit(EXIT_SUCCESS);
+  }
+  // Actually remove the link
+  char *fpath = argv[subind];
+  attempt_unlink(fpath, &opts);
 }
 
 /**
@@ -395,6 +483,9 @@ void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts) {
       break;
     case LIST:
       treat_list(argc, argv, hopts);
+      break;
+    case UNLINK:
+      treat_unlink(argc, argv, hopts);
       break;
     default:
       fprintf(stderr, "Unreachable treat_command\n");

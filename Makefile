@@ -4,6 +4,7 @@ DEPS = main.c \
 	options/init.c \
 	options/link.c \
 	options/list.c \
+	options/unlink.c \
 	command.c
 
 stuff: $(DEPS)

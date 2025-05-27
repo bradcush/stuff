@@ -36,6 +36,8 @@ errors due to "Permission denied".
 
 - Symlinking protected directories requires `sudo`
 - Commands must be run in the project root
+- Unlinking requires a valid existing link
+- Support for mapping is incomplete
 
 ## Documentation
 
