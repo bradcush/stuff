@@ -73,3 +73,7 @@ and not a bug for the time being.
 The goal is that stuff will be available on most systems but for now I've only
 developed and tested locally using Linux and specifically Arch Linux. It may or
 may not work on other distributions of Linux for now.
+
+## License
+
+[stuff MIT License](LICENSE)
