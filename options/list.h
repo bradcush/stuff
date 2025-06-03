@@ -6,6 +6,7 @@
 // List command options
 typedef struct list_opts {
   int hflag;
+  int lflag;
 } list_opts_t;
 
 int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind);

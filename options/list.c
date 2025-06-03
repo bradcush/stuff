@@ -11,12 +11,13 @@
  */
 int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind) {
   int option;
-  const char *short_opt = "dh";
+  const char *short_opt = "dlh";
   // Allows handling for single characters
   // debug option is a hidden global
   struct option long_opt[] = {
       {"debug", no_argument, NULL, 'd'},
       {"help", no_argument, NULL, 'h'},
+      {"links", no_argument, NULL, 'l'},
       {NULL, 0, NULL, 0}
   };
   while ((option = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
@@ -26,6 +27,9 @@ int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind) {
         break;
       case 'h':
         opts->hflag = 1;
+        break;
+      case 'l':
+        opts->lflag = 1;
         break;
       case '?':
         if (isprint(optopt)) {
@@ -47,6 +51,7 @@ int set_list_options(int argc, char **argv, list_opts_t *opts, int *subind) {
  */
 void print_list_options(int argc, char **argv, list_opts_t *opts) {
   printf("hflag = %d\n", opts->hflag);
+  printf("lflag = %d\n", opts->hflag);
   for (int index = optind; index < argc; index++) {
     printf("Non-option argument %s\n", argv[index]);
   }

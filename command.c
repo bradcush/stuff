@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// Printing colored output
+// Defining colored output
 #define ANSI_COLOR_RED "\x1b[31m"
 #define ANSI_COLOR_GREEN "\x1b[32m"
 #define ANSI_COLOR_YELLOW "\x1b[33m"
@@ -23,9 +23,9 @@
 #define ANSI_COLOR_CYAN "\x1b[36m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 
+#define GREEN(str) ANSI_COLOR_GREEN str ANSI_COLOR_RESET
+
 const char *CURRENT_DIRECTORY = ".";
-const char *STUFF_DIRECTORY = ".stuff";
-const char *LINKS_PATH = ".stuff/links";
 
 uint USER_FULL = S_IREAD | S_IWRITE | S_IEXEC;
 
@@ -105,7 +105,8 @@ void print_list_usage(char **argv) {
   printf("All files discovered from the project root are listed with any\n"
          "linked files and their system location highlighted in green.\n\n");
   printf("Options:\n");
-  printf("  -h, --help           Print this help and exit\n\n");
+  printf("  -h, --help           Print this help and exit\n");
+  printf("  -l, --links          Filter for files actually linked\n\n");
 }
 
 /**
@@ -139,8 +140,8 @@ int get_file_stats(char *filename, struct stat *sb) {
  * pointer which needs to be freed by the caller.
  */
 char *make_link_path(const char *fpath) {
-  // Should be directory where init called but we're only
-  // supporting calling from that directory for now
+  // We're only supporting calling from the
+  // project root directory for now
   char prefix[PATH_MAX + 1];
   realpath(".", prefix);
   char fabspath[PATH_MAX + 1];
@@ -164,7 +165,7 @@ char *make_link_path(const char *fpath) {
  * Handle a directory entry by filtering ignored
  * directories and logging the rest to stdout
  */
-int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
+int treat_any_entry(const char *fpath, const struct stat *sb, int tflag) {
   // Hardcoding hidden git, stuff, and current directory
   // but should move to persisted file input later
   char *pattern = "!(./.git*|./.stuff*|.)";
@@ -182,12 +183,34 @@ int treat_entry(const char *fpath, const struct stat *sb, int tflag) {
     // Using fstat for both files and links to see if
     // the actual file stats are the same for both
     if (!errlink && fsb.st_ino == lsb.st_ino) {
-      printf(ANSI_COLOR_GREEN "%s -> %s\n" ANSI_COLOR_RESET, fpath, spathnorm);
+      printf(GREEN("%s -> %s\n"), fpath, spathnorm);
     } else {
       printf("%s -> %s\n", fpath, spathnorm);
     }
     free(lpath);
   }
+  return 0;
+}
+
+/**
+ * Handle a directory entry by filtering paths which
+ * aren't linked and logging the rest to stdout
+ */
+int treat_link_entry(const char *fpath, const struct stat *sb, int tflag) {
+  struct stat fsb, lsb;
+  int errfile = get_file_stats((char *)fpath, &fsb);
+  if (errfile) {
+    fprintf(stderr, "Non-existent file `%s'\n", fpath);
+    exit(EXIT_FAILURE);
+  }
+  char *lpath = make_link_path(fpath);
+  int errlink = get_file_stats((char *)lpath, &lsb);
+  // Using fstat for both files and links to see if
+  // the actual file stats are the same for both
+  if (!errlink && fsb.st_ino == lsb.st_ino) {
+    printf(GREEN("%s -> %s\n"), fpath, lpath);
+  }
+  free(lpath);
   return 0;
 }
 
@@ -385,9 +408,17 @@ void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
     exit(EXIT_SUCCESS);
   }
   // Walk the file tree and handle entries
-  if (ftw(CURRENT_DIRECTORY, treat_entry, 20) == -1) {
-    fprintf(stderr, "Error walking directory\n");
-    exit(EXIT_FAILURE);
+  int concurrency_max = 20;
+  if (opts.lflag) {
+    if (ftw(CURRENT_DIRECTORY, treat_link_entry, concurrency_max) == -1) {
+      fprintf(stderr, "Error walking directory\n");
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    if (ftw(CURRENT_DIRECTORY, treat_any_entry, concurrency_max) == -1) {
+      fprintf(stderr, "Error walking directory\n");
+      exit(EXIT_FAILURE);
+    }
   }
 }
 
