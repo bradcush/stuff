@@ -14,6 +14,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+// Supress unused compiler warnings with a
+// compiler specific variable attribute
+#define UNUSED __attribute__((unused))
+
 // Defining colored output
 #define ANSI_COLOR_RED "\x1b[31m"
 #define ANSI_COLOR_GREEN "\x1b[32m"
@@ -26,8 +30,7 @@
 #define GREEN(str) ANSI_COLOR_GREEN str ANSI_COLOR_RESET
 
 const char *CURRENT_DIRECTORY = ".";
-
-uint USER_FULL = S_IREAD | S_IWRITE | S_IEXEC;
+const char *BROKEN_LINK = "x";
 
 /**
  * Map a command to a better suited enum
@@ -38,7 +41,7 @@ command_t map_command(char *command) {
     const char *str;
   } map[] = {{NONE, ""}, {LINK, "link"}, {LIST, "list"}, {UNLINK, "unlink"}};
   size_t length = sizeof(map) / sizeof(map[0]);
-  for (int i = 0; i < length; i++) {
+  for (size_t i = 0; i < length; i++) {
     if (!strcmp(command, map[i].str)) {
       return map[i].val;
     }
@@ -53,10 +56,12 @@ command_t map_command(char *command) {
 void print_none_usage(char **argv) {
   printf("Usage: %s <command> [options]\n\n", argv[0]);
   printf("Command-line dotfiles management\n\n");
-  printf("stuff is a tool intended to make it simple to manage dotfiles\n"
-         "using a repository with version control. There is a list of\n"
-         "commands and options below that can be called with the additional\n"
-         "`--help' flag for more information.\n\n");
+  printf(
+      "stuff is a tool intended to make it simple to manage dotfiles\n"
+      "using a repository with version control. There is a list of\n"
+      "commands and options below that can be called with the additional\n"
+      "`--help' flag for more information.\n\n"
+  );
   printf("Commands:\n");
   printf("  link                 Link local files or directories\n");
   printf("  list                 List all tracked dotfiles\n");
@@ -74,9 +79,11 @@ void print_none_usage(char **argv) {
 void print_link_usage(char **argv) {
   printf("Usage: %s link <path> [options]\n\n", argv[0]);
   printf("Link local files or directories\n\n");
-  printf("Linked files and folders are mapped to their system location based\n"
-         "on the project directory structure with files in the root of the\n"
-         "project mapping to the root of the system.\n\n");
+  printf(
+      "Linked files and folders are mapped to their system location based\n"
+      "on the project directory structure with files in the root of the\n"
+      "project mapping to the root of the system.\n\n"
+  );
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
@@ -88,9 +95,11 @@ void print_link_usage(char **argv) {
 void print_unlink_usage(char **argv) {
   printf("Usage: %s unlink <path> [options]\n\n", argv[0]);
   printf("Unlink local files or directories\n\n");
-  printf("Linked files and folders are unmapped from their system location\n"
-         "based on the project directory structure with files in the root of\n"
-         "the project mapping to the root of the system.\n\n");
+  printf(
+      "Linked files and folders are unmapped from their system location\n"
+      "based on the project directory structure with files in the root of\n"
+      "the project mapping to the root of the system.\n\n"
+  );
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
@@ -101,9 +110,11 @@ void print_unlink_usage(char **argv) {
  */
 void print_list_usage(char **argv) {
   printf("Usage: %s list [options]\n\n", argv[0]);
-  printf("List all tracked dotfiles\n\n");
-  printf("All files discovered from the project root are listed with any\n"
-         "linked files and their system location highlighted in green.\n\n");
+  printf("List all of the tracked dotfiles\n\n");
+  printf(
+      "All files discovered from the project root are listed with any\n"
+      "linked files and their system location highlighted in green.\n\n"
+  );
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
   printf("  -l, --links          Filter for files actually linked\n\n");
@@ -165,7 +176,9 @@ char *make_link_path(const char *fpath) {
  * Handle a directory entry by filtering ignored
  * directories and logging the rest to stdout
  */
-int treat_any_entry(const char *fpath, const struct stat *sb, int tflag) {
+int treat_any_entry(
+    const char *fpath, UNUSED const struct stat *sb, UNUSED int tflag
+) {
   // Hardcoding hidden git, stuff, and current directory
   // but should move to persisted file input later
   char *pattern = "!(./.git*|./.stuff*|.)";
@@ -179,7 +192,7 @@ int treat_any_entry(const char *fpath, const struct stat *sb, int tflag) {
     }
     char *lpath = make_link_path(fpath);
     int errlink = get_file_stats((char *)lpath, &lsb);
-    char *spathnorm = errlink ? "x" : lpath;
+    const char *spathnorm = errlink ? BROKEN_LINK : lpath;
     // Using fstat for both files and links to see if
     // the actual file stats are the same for both
     if (!errlink && fsb.st_ino == lsb.st_ino) {
@@ -196,7 +209,9 @@ int treat_any_entry(const char *fpath, const struct stat *sb, int tflag) {
  * Handle a directory entry by filtering paths which
  * aren't linked and logging the rest to stdout
  */
-int treat_link_entry(const char *fpath, const struct stat *sb, int tflag) {
+int treat_link_entry(
+    const char *fpath, UNUSED const struct stat *sb, UNUSED int tflag
+) {
   struct stat fsb, lsb;
   int errfile = get_file_stats((char *)fpath, &fsb);
   if (errfile) {
@@ -255,7 +270,7 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
  * Tracks a link meaning creating the link and
  * persisting the mapping if the local file exists
  */
-void track_link(char *fpath) {
+void track_link(char *fpath, char *lpath) {
   // Check the file actually exists
   struct stat fsb;
   int errfile = get_file_stats(fpath, &fsb);
@@ -263,7 +278,6 @@ void track_link(char *fpath) {
     fprintf(stderr, "Non-existent path `%s'\n", fpath);
     exit(EXIT_FAILURE);
   }
-  char *lpath = make_link_path(fpath);
   char fabspath[PATH_MAX + 1];
   realpath(fpath, fabspath);
   // Specify the full path because locations are relative
@@ -275,7 +289,6 @@ void track_link(char *fpath) {
     fprintf(stderr, "Couldn't link file `%s'\n", fpath);
     exit(EXIT_FAILURE);
   }
-  free(lpath);
 }
 
 /**
@@ -301,7 +314,7 @@ void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
   // we only accept a single argument
   if (++subind < argc) {
     fprintf(stderr, "Invalid link non-option `%s'\n", argv[subind]);
-    exit(EXIT_SUCCESS);
+    exit(EXIT_FAILURE);
   }
   // Reset for future use
   subind--;
@@ -313,14 +326,17 @@ void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
   }
   // Actually add the link
   char *fpath = argv[subind];
-  track_link(fpath);
+  char *lpath = make_link_path(fpath);
+  track_link(fpath, lpath);
+  printf(GREEN("%s -> %s\n"), fpath, lpath);
+  free(lpath);
 }
 
 /**
  * Unlinks a link, deletes a file, or removes
  * a directory depending on the given path
  */
-void attempt_unlink(char *fpath, unlink_opts_t *opts) {
+void attempt_unlink(char *fpath) {
   // Check the file actually exists
   // Only unlink if we have a preimage
   struct stat fsb;
@@ -338,10 +354,13 @@ void attempt_unlink(char *fpath, unlink_opts_t *opts) {
     exit(EXIT_FAILURE);
   }
   // Specify the full path
-  remove(lpath);
+  int errunlink = remove(lpath);
+  if (errunlink) {
+    perror("Issue unlinking path");
+    fprintf(stderr, "Couldn't unlink path `%s'\n", lpath);
+    exit(EXIT_FAILURE);
+  }
   free(lpath);
-  // Still need to unmap persisted file entries but
-  // we might decide to remove mapping altogether
 }
 
 /**
@@ -367,7 +386,7 @@ void treat_unlink(int argc, char **argv, hidden_opts_t *hopts) {
   // we only accept a single argument
   if (++subind < argc) {
     fprintf(stderr, "Invalid unlink non-option `%s'\n", argv[subind]);
-    exit(EXIT_SUCCESS);
+    exit(EXIT_FAILURE);
   }
   // Reset for future use
   subind--;
@@ -379,7 +398,8 @@ void treat_unlink(int argc, char **argv, hidden_opts_t *hopts) {
   }
   // Actually remove the link
   char *fpath = argv[subind];
-  attempt_unlink(fpath, &opts);
+  attempt_unlink(fpath);
+  printf("%s -> %s\n", fpath, BROKEN_LINK);
 }
 
 /**
@@ -408,17 +428,12 @@ void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
     exit(EXIT_SUCCESS);
   }
   // Walk the file tree and handle entries
-  int concurrency_max = 20;
-  if (opts.lflag) {
-    if (ftw(CURRENT_DIRECTORY, treat_link_entry, concurrency_max) == -1) {
-      fprintf(stderr, "Error walking directory\n");
-      exit(EXIT_FAILURE);
-    }
-  } else {
-    if (ftw(CURRENT_DIRECTORY, treat_any_entry, concurrency_max) == -1) {
-      fprintf(stderr, "Error walking directory\n");
-      exit(EXIT_FAILURE);
-    }
+  int (*treat_func)(const char *, const struct stat *, int) =
+      opts.lflag ? treat_link_entry : treat_any_entry;
+  // Concurrently handle 20 enties at a time
+  if (ftw(CURRENT_DIRECTORY, treat_func, 20) == -1) {
+    fprintf(stderr, "Error walking directory\n");
+    exit(EXIT_FAILURE);
   }
 }
 

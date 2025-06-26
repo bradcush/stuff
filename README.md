@@ -22,14 +22,20 @@ Building from source only:
 
 `make` or `make stuff`
 
+stuff binaries are placed in `./usr/local/bin`. We can link stuff using
+itself via `sudo ./usr/local/bin/stuff link ./usr/local/bin/stuff`. `sudo` is
+necessary here since root is required for changes to `/usr/local/bin`. You can
+then check it's been linked correctly by calling `stuff list`. This call only
+works if the binary is linked, showing in green the linked entry.
+
 ## Running
 
-See `./stuff --help` for commands and options
+See `stuff --help` for commands and options
 
 ### sudo
 
 Links might need to be created in directories that only the root user has
-access to for certain systems. You might need to run `sudo ./stuff` if you see
+access to for certain systems. You might need to run `sudo stuff` if you see
 errors due to "Permission denied".
 
 ### Restrictions

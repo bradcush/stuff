@@ -7,7 +7,7 @@ DEPS = main.c \
 	command.c
 
 stuff: $(DEPS)
-	gcc -g -Wall $(DEPS) -o stuff
+	gcc -g -Wall -Wextra $(DEPS) -o usr/local/bin/stuff
 
 clean:
-	rm -f stuff
+	rm -f usr/local/bin/stuff
