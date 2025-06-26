@@ -6,15 +6,23 @@ Command-line dotfiles management
 
 stuff is a tool intended to make it simple to manage dotfiles using a
 repository with version control. Like some alternatives - stow or chezmoi -
-it's based on linking but those tools are incomplete for some basic use cases
-that I was looking for.
+it's based on linking but those tools are incomplete or over complicated.
 
-## C language
+## Organization
 
-This project is meant to be written mostly in C, a good choice for systems
-programming over many decades. While other, newer languages are suitable like
-Zig or Rust, I've chosen C for the simple fact that it's fast and I just want
-to experience writing a robust command-line tool with it.
+stuff should be run in the root directory of your project, whose relative
+directory structure should mirror that of your system. Consider that the
+project root maps to the root directory of the system. Then by example, for the
+user `bradcush`, `project/home/bradcush/.bashrc` would automatically map to
+`/home/bradcush/.bashrc` for any project scoped stuff command. Given the
+commands `link`, `list`, and `unlink`, this already provides enough
+functionality to easily add, view, and remove links for dotfiles.
+
+We recommend linking both files and directories as necessary. If a system
+directory should only contain links sourced from your project, it's best to
+link the entire directory. Conversely, when system directories contain a
+combination of links and concrete files, you should only link files
+individually as to not overwrite anything on the system.
 
 ## Building
 
@@ -35,21 +43,35 @@ See `stuff --help` for commands and options
 ### sudo
 
 Links might need to be created in directories that only the root user has
-access to for certain systems. You might need to run `sudo stuff` if you see
-errors due to "Permission denied".
+access to for certain systems. You might need to run `sudo stuff ...` if you
+see errors due to "Permission denied".
 
 ### Restrictions
 
 - Symlinking protected directories requires `sudo`
 - Commands must be run in the project root
 - Unlinking requires a valid existing link
-- Support for mapping is incomplete
+- Support for mapping is implemented
 
 ## Documentation
 
 I've tried to make things as intuitive as I can with sane defaults. All
 documentation related to usage is included in the tool itself which can be
-accessed through the `--help` flag corresponding to optional commands.
+accessed through the `--help` flag corresponding to optional commands. Specific
+use cases or more detailed recommendations are covered in the Markdown.
+
+## Support
+
+The goal is that stuff will be available on most systems but for now I've only
+developed and tested locally using Linux and specifically Arch Linux. It may or
+may not work on other distributions of Linux for now.
+
+## C language
+
+This project is meant to be written mostly in C, a good choice for systems
+programming over many decades. While other, newer languages are suitable like
+Zig or Rust, I've chosen C for the simple fact that it's fast and I just want
+to experience writing a robust command-line tool with it.
 
 ## Architecture
 
@@ -57,6 +79,14 @@ Parsing options and commands is done in a hierarchical, two-step manner where
 global (hidden) options are parsed first and then command options. This gives
 flexibility but also requires care in how the two may affect one another. Keep
 in mind that top-level hidden options are meant for internal use only.
+
+## Linking
+
+Linking is an implementation detail but it can be useful to know that stuff
+uses symbolic links to create links between a source in the project source and
+the system. Symlinks clearly show references, can link across different
+filesystems, and are allowed for directories. All of this makes them more
+powerful and easier to manage for our use cases.
 
 ## Quirks
 
@@ -73,12 +103,6 @@ until we find a better way.
 We also parse commands using `optind` which means they don't have to directly
 follow the program name when specified. We consider this behaviour a feature
 and not a bug for the time being.
-
-## Support
-
-The goal is that stuff will be available on most systems but for now I've only
-developed and tested locally using Linux and specifically Arch Linux. It may or
-may not work on other distributions of Linux for now.
 
 ## License
 
