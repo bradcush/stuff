@@ -31,6 +31,7 @@
 
 const char *CURRENT_DIRECTORY = ".";
 const char *BROKEN_LINK = "x";
+const char *VERSION = "0.0.1";
 
 /**
  * Map a command to a better suited enum
@@ -124,7 +125,7 @@ void print_list_usage(char **argv) {
  * Read file stats for a file or an expected link which
  * often won't exist but we want to handle nicely
  */
-int get_file_stats(char *filename, struct stat *sb) {
+int get_file_stats(const char *filename, struct stat *sb) {
   if (stat(filename, sb) == -1) {
     // Assuming no such file or directory
     return 1;
@@ -154,7 +155,7 @@ char *make_link_path(const char *fpath) {
   // We're only supporting calling from the
   // project root directory for now
   char prefix[PATH_MAX + 1];
-  realpath(".", prefix);
+  realpath(CURRENT_DIRECTORY, prefix);
   char fabspath[PATH_MAX + 1];
   realpath(fpath, fabspath);
   char *subloc = strstr(fabspath, prefix);
@@ -185,13 +186,13 @@ int treat_any_entry(
   int flags = FNM_EXTMATCH;
   if (fnmatch(pattern, fpath, flags) == 0) {
     struct stat fsb, lsb;
-    int errfile = get_file_stats((char *)fpath, &fsb);
+    int errfile = get_file_stats(fpath, &fsb);
     if (errfile) {
       fprintf(stderr, "Non-existent file `%s'\n", fpath);
       exit(EXIT_FAILURE);
     }
     char *lpath = make_link_path(fpath);
-    int errlink = get_file_stats((char *)lpath, &lsb);
+    int errlink = get_file_stats(lpath, &lsb);
     const char *spathnorm = errlink ? BROKEN_LINK : lpath;
     // Using fstat for both files and links to see if
     // the actual file stats are the same for both
@@ -213,13 +214,13 @@ int treat_link_entry(
     const char *fpath, UNUSED const struct stat *sb, UNUSED int tflag
 ) {
   struct stat fsb, lsb;
-  int errfile = get_file_stats((char *)fpath, &fsb);
+  int errfile = get_file_stats(fpath, &fsb);
   if (errfile) {
     fprintf(stderr, "Non-existent file `%s'\n", fpath);
     exit(EXIT_FAILURE);
   }
   char *lpath = make_link_path(fpath);
-  int errlink = get_file_stats((char *)lpath, &lsb);
+  int errlink = get_file_stats(lpath, &lsb);
   // Using fstat for both files and links to see if
   // the actual file stats are the same for both
   if (!errlink && fsb.st_ino == lsb.st_ino) {
@@ -257,7 +258,7 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
   }
   if (opts.vflag) {
     // Hardcoded version for now
-    printf("stuff version %s\n", "0.0.1");
+    printf("stuff version %s\n", VERSION);
   }
   // Best to call usage explicitly
   // when no arguments given
@@ -267,8 +268,7 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
 }
 
 /**
- * Tracks a link meaning creating the link and
- * persisting the mapping if the local file exists
+ * Tracks a link meaning creating it
  */
 void track_link(char *fpath, char *lpath) {
   // Check the file actually exists
@@ -430,7 +430,7 @@ void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
   // Walk the file tree and handle entries
   int (*treat_func)(const char *, const struct stat *, int) =
       opts.lflag ? treat_link_entry : treat_any_entry;
-  // Concurrently handle 20 enties at a time
+  // Concurrently handle 20 entries at a time
   if (ftw(CURRENT_DIRECTORY, treat_func, 20) == -1) {
     fprintf(stderr, "Error walking directory\n");
     exit(EXIT_FAILURE);
