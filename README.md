@@ -40,6 +40,14 @@ works if the binary is linked, showing in green the linked entry.
 
 See `stuff --help` for commands and options
 
+Example using the `list` subcommand:
+
+``` sh
+# Listing the linked binary
+$ stuff list --linked
+/usr/local/bin/stuff
+```
+
 ### sudo
 
 Links might need to be created in directories that only the root user has
@@ -103,6 +111,13 @@ until we find a better way.
 We also parse commands using `optind` which means they don't have to directly
 follow the program name when specified. We consider this behaviour a feature
 and not a bug for the time being.
+
+## Stateless
+
+The current design approach is stateless one, meaning that stuff keeps track of
+no persistent state in order to function properly. The only thing stuff relies
+on is an accurate local project structure, which is uses as a guide to add,
+view, and remove links in a given system directory.
 
 ## License
 
