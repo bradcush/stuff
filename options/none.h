@@ -4,10 +4,9 @@
 #define NONE_OPTIONS_H
 
 // Commandless options
-typedef struct none_opts {
+typedef struct {
   int hflag;
   int vflag;
-  char *tvalue;
 } none_opts_t;
 
 int set_none_options(int argc, char **argv, none_opts_t *opts, int *subind);

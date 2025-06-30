@@ -4,8 +4,9 @@
 #define LINK_OPTIONS_H
 
 // Link command options
-typedef struct link_opts {
+typedef struct {
   int hflag;
+  int fflag;
 } link_opts_t;
 
 int set_link_options(int argc, char **argv, link_opts_t *opts, int *subind);

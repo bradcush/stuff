@@ -1,12 +1,18 @@
+// Enable GNU extension required for FNM_EXTMATCH
+// We should replace this to not rely on GNU systems
+#define _GNU_SOURCE
+
 #include "command.h"
 #include "options/hidden.h"
 #include "options/link.h"
 #include "options/list.h"
 #include "options/none.h"
 #include "options/unlink.h"
+#include <errno.h>
 #include <fnmatch.h>
 #include <ftw.h>
 #include <limits.h>
+#include <pwd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,9 +35,14 @@
 
 #define GREEN(str) ANSI_COLOR_GREEN str ANSI_COLOR_RESET
 
-const char *CURRENT_DIRECTORY = ".";
-const char *BROKEN_LINK = "x";
-const char *VERSION = "0.0.1";
+// Setting some options globally for now so we can
+// access them in places we can't easily get to like
+// inside functions passed as pointers to ftw
+static list_opts_t glist_opts = {0};
+
+static const char *ROOT_DIRECTORY = "/";
+static const char *CURRENT_DIRECTORY = ".";
+static const char *VERSION = "0.0.1";
 
 /**
  * Map a command to a better suited enum
@@ -65,12 +76,12 @@ void print_none_usage(char **argv) {
   );
   printf("Commands:\n");
   printf("  link                 Link local files or directories\n");
-  printf("  list                 List all tracked dotfiles\n");
+  printf("  list                 List all of the tracked dotfiles\n");
   printf("  unlink               Unlink local files or directories\n\n");
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
   printf("  -v, --version        Print the current version number\n");
-  printf("  -t, --test           Test flags accepting arguments\n\n");
+  printf("  -r, --root           Specify a path for another link location\n\n");
 }
 
 /**
@@ -86,6 +97,8 @@ void print_link_usage(char **argv) {
       "project mapping to the root of the system.\n\n"
   );
   printf("Options:\n");
+  printf("  -h, --force          Link even if a link exists\n");
+  printf("  -h, --help           Print this help and exit\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
 
@@ -113,12 +126,13 @@ void print_list_usage(char **argv) {
   printf("Usage: %s list [options]\n\n", argv[0]);
   printf("List all of the tracked dotfiles\n\n");
   printf(
-      "All files discovered from the project root are listed with any\n"
-      "linked files and their system location highlighted in green.\n\n"
+      "All files discovered from the project root are listed using\n"
+      "their system location with links highlighted in green.\n\n"
   );
   printf("Options:\n");
   printf("  -h, --help           Print this help and exit\n");
-  printf("  -l, --links          Filter for files actually linked\n\n");
+  printf("  -l, --linked         Filter for files actually linked\n");
+  printf("  -o, --owner          List the owner with the linked file\n\n");
 }
 
 /**
@@ -149,7 +163,8 @@ int get_file_stats(const char *filename, struct stat *sb) {
 /**
  * Make the system path for some local path where a first version
  * doesn't do special mapping. Allocates memory for the returned
- * pointer which needs to be freed by the caller.
+ * pointer which needs to be freed by the caller. This also
+ * handles a custom root defined in the hidden options.
  */
 char *make_link_path(const char *fpath) {
   // We're only supporting calling from the
@@ -158,26 +173,48 @@ char *make_link_path(const char *fpath) {
   realpath(CURRENT_DIRECTORY, prefix);
   char fabspath[PATH_MAX + 1];
   realpath(fpath, fabspath);
-  char *subloc = strstr(fabspath, prefix);
-  // Check explicit in case 0 location
-  if (subloc == NULL) {
+  char *pos = strstr(fabspath, prefix);
+  // Substring doesn't match
+  if (pos == NULL) {
     fprintf(stderr, "File outside project `%s'\n", fpath);
     exit(EXIT_FAILURE);
   }
-  // Using strlen(prefix) factoring in terminator
-  // because the allocated length might be more
-  int linklen = strlen(fabspath) - strlen(prefix);
-  // Come back to why we needed to add one
-  // I think it's because of NULL terminators
-  char *lpath = (char *)malloc((linklen + 1) * sizeof(char));
-  return strcpy(lpath, &fabspath[strlen(prefix)]);
+  char next_prefix[PATH_MAX + 1];
+  realpath(ghidden_opts.rvalue, next_prefix);
+  char *suffix = &fabspath[strlen(prefix) + 1];
+  // Adding 1 makes enough room to add "/" if needed
+  int lpathlen = strlen(next_prefix) + 1 + strlen(suffix);
+  char *lpath = (char *)malloc((lpathlen + 1) * sizeof(char));
+  strcpy(lpath, next_prefix);
+  // Just next_prefix = "/" ends with a slash so
+  // we need to add it for all the other cases
+  if (strcmp(next_prefix, ROOT_DIRECTORY)) {
+    strcat(lpath, ROOT_DIRECTORY);
+  }
+  return strcat(lpath, suffix);
 }
 
 /**
- * Handle a directory entry by filtering ignored
- * directories and logging the rest to stdout
+ * Given a link path and name buffer, fills the
+ * name buffer with the user who owns the link
  */
-int treat_any_entry(
+char *get_link_owner(char *lpath) {
+  struct stat lsb;
+  // Gives the stats for the link instead
+  // of the file that the link links to
+  lstat(lpath, &lsb);
+  struct passwd *pwd;
+  pwd = getpwuid(lsb.st_uid);
+  char *username = pwd->pw_name;
+  char *owner = (char *)malloc((strlen(username) + 1) * sizeof(char));
+  return strcpy(owner, username);
+}
+
+/**
+ * Handle a file or directory entry based on
+ * global list options and log to stdout
+ */
+int treat_entry(
     const char *fpath, UNUSED const struct stat *sb, UNUSED int tflag
 ) {
   // Hardcoding hidden git, stuff, and current directory
@@ -193,13 +230,18 @@ int treat_any_entry(
     }
     char *lpath = make_link_path(fpath);
     int errlink = get_file_stats(lpath, &lsb);
-    const char *spathnorm = errlink ? BROKEN_LINK : lpath;
     // Using fstat for both files and links to see if
     // the actual file stats are the same for both
     if (!errlink && fsb.st_ino == lsb.st_ino) {
-      printf(GREEN("%s -> %s\n"), fpath, spathnorm);
-    } else {
-      printf("%s -> %s\n", fpath, spathnorm);
+      if (glist_opts.oflag) {
+        char *owner = get_link_owner(lpath);
+        printf(GREEN("%s %s\n"), owner, lpath);
+      } else {
+        printf(GREEN("%s\n"), lpath);
+      }
+    } else if (!glist_opts.lflag) {
+      // Don't care about unlinked owners
+      printf("%s\n", lpath);
     }
     free(lpath);
   }
@@ -207,36 +249,10 @@ int treat_any_entry(
 }
 
 /**
- * Handle a directory entry by filtering paths which
- * aren't linked and logging the rest to stdout
- */
-int treat_link_entry(
-    const char *fpath, UNUSED const struct stat *sb, UNUSED int tflag
-) {
-  struct stat fsb, lsb;
-  int errfile = get_file_stats(fpath, &fsb);
-  if (errfile) {
-    fprintf(stderr, "Non-existent file `%s'\n", fpath);
-    exit(EXIT_FAILURE);
-  }
-  char *lpath = make_link_path(fpath);
-  int errlink = get_file_stats(lpath, &lsb);
-  // Using fstat for both files and links to see if
-  // the actual file stats are the same for both
-  if (!errlink && fsb.st_ino == lsb.st_ino) {
-    printf(GREEN("%s -> %s\n"), fpath, lpath);
-  }
-  free(lpath);
-  return 0;
-}
-
-/**
  * Handle NONE command
  */
 void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
-  none_opts_t opts = {0, 0, NULL};
-  char default_mode = 'A';
-  opts.tvalue = &default_mode;
+  none_opts_t opts = {0, 0};
   int subind = 0;
   if (set_none_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting options\n");
@@ -268,9 +284,40 @@ void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
 }
 
 /**
- * Tracks a link meaning creating it
+ * Unlinks a link, deletes a file, or removes
+ * a directory depending on the given path
  */
-void track_link(char *fpath, char *lpath) {
+void attempt_unlink(char *fpath) {
+  // Check the file actually exists
+  // Only unlink if we have a preimage
+  struct stat fsb;
+  int errfile = get_file_stats(fpath, &fsb);
+  if (errfile) {
+    fprintf(stderr, "Non-existent file path `%s'\n", fpath);
+    exit(EXIT_FAILURE);
+  }
+  char *lpath = make_link_path(fpath);
+  // Check if the link actually exists
+  struct stat lsb;
+  int errlink = get_file_stats(lpath, &lsb);
+  if (errlink) {
+    fprintf(stderr, "Non-existent link path `%s'\n", lpath);
+    exit(EXIT_FAILURE);
+  }
+  // Specify the full path
+  int errunlink = remove(lpath);
+  if (errunlink) {
+    perror("Issue unlinking path");
+    fprintf(stderr, "Couldn't unlink path `%s'\n", lpath);
+    exit(EXIT_FAILURE);
+  }
+  free(lpath);
+}
+
+/**
+ * Tracks a link, meaning creates it
+ */
+void add_link(char *fpath, char *lpath, link_opts_t *opts) {
   // Check the file actually exists
   struct stat fsb;
   int errfile = get_file_stats(fpath, &fsb);
@@ -285,9 +332,20 @@ void track_link(char *fpath, char *lpath) {
   // trying to relink a file that's already linked.
   int errlink = symlink(fabspath, lpath);
   if (errlink) {
-    perror("Issue creating link");
-    fprintf(stderr, "Couldn't link file `%s'\n", fpath);
-    exit(EXIT_FAILURE);
+    if (errno == EEXIST && opts->fflag) {
+      // Useful when downgrading permissions
+      attempt_unlink(fpath);
+      int nerrlink = symlink(fabspath, lpath);
+      if (nerrlink) {
+        perror("Issue creating forced link");
+        fprintf(stderr, "Couldn't force link file `%s'\n", fpath);
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      perror("Issue creating link");
+      fprintf(stderr, "Couldn't link file `%s'\n", fpath);
+      exit(EXIT_FAILURE);
+    }
   }
 }
 
@@ -327,39 +385,8 @@ void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
   // Actually add the link
   char *fpath = argv[subind];
   char *lpath = make_link_path(fpath);
-  track_link(fpath, lpath);
-  printf(GREEN("%s -> %s\n"), fpath, lpath);
-  free(lpath);
-}
-
-/**
- * Unlinks a link, deletes a file, or removes
- * a directory depending on the given path
- */
-void attempt_unlink(char *fpath) {
-  // Check the file actually exists
-  // Only unlink if we have a preimage
-  struct stat fsb;
-  int errfile = get_file_stats(fpath, &fsb);
-  if (errfile) {
-    fprintf(stderr, "Non-existent file path `%s'\n", fpath);
-    exit(EXIT_FAILURE);
-  }
-  char *lpath = make_link_path(fpath);
-  // Check if the link actually exists
-  struct stat lsb;
-  int errlink = get_file_stats(lpath, &lsb);
-  if (errlink) {
-    fprintf(stderr, "Non-existent link path `%s'\n", lpath);
-    exit(EXIT_FAILURE);
-  }
-  // Specify the full path
-  int errunlink = remove(lpath);
-  if (errunlink) {
-    perror("Issue unlinking path");
-    fprintf(stderr, "Couldn't unlink path `%s'\n", lpath);
-    exit(EXIT_FAILURE);
-  }
+  add_link(fpath, lpath, &opts);
+  printf(GREEN("%s\n"), lpath);
   free(lpath);
 }
 
@@ -399,21 +426,20 @@ void treat_unlink(int argc, char **argv, hidden_opts_t *hopts) {
   // Actually remove the link
   char *fpath = argv[subind];
   attempt_unlink(fpath);
-  printf("%s -> %s\n", fpath, BROKEN_LINK);
+  printf("%s\n", fpath);
 }
 
 /**
  * Handle LIST command
  */
 void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
-  list_opts_t opts = {0};
   int subind = 0;
-  if (set_list_options(argc, argv, &opts, &subind) != 0) {
+  if (set_list_options(argc, argv, &glist_opts, &subind) != 0) {
     fprintf(stderr, "Failure setting list options\n");
     exit(EXIT_FAILURE);
   }
   if (hopts->dflag) {
-    print_list_options(argc, argv, &opts);
+    print_list_options(argc, argv, &glist_opts);
   }
   // Current should be LIST so next
   // is invalid if within limit
@@ -423,15 +449,12 @@ void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
   }
   // We give priority to certain options
   // and stop executing depending
-  if (opts.hflag) {
+  if (glist_opts.hflag) {
     print_list_usage(argv);
     exit(EXIT_SUCCESS);
   }
-  // Walk the file tree and handle entries
-  int (*treat_func)(const char *, const struct stat *, int) =
-      opts.lflag ? treat_link_entry : treat_any_entry;
   // Concurrently handle 20 entries at a time
-  if (ftw(CURRENT_DIRECTORY, treat_func, 20) == -1) {
+  if (ftw(CURRENT_DIRECTORY, treat_entry, 20) == -1) {
     fprintf(stderr, "Error walking directory\n");
     exit(EXIT_FAILURE);
   }

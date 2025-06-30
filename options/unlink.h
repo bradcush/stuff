@@ -4,7 +4,7 @@
 #define UNLINK_OPTIONS_H
 
 // Unlink command options
-typedef struct unlink_opts {
+typedef struct {
   int hflag;
 } unlink_opts_t;
 

@@ -13,18 +13,20 @@ int set_unlink_options(
     int argc, char **argv, unlink_opts_t *opts, int *subind
 ) {
   int option;
-  const char *short_opt = "dh";
+  const char *short_opt = "dhr:";
   // Allows handling for single characters
   // debug option is a hidden global
   struct option long_opt[] = {
       {"debug", no_argument, NULL, 'd'},
       {"help", no_argument, NULL, 'h'},
+      {"root", required_argument, NULL, 'r'},
       {NULL, 0, NULL, 0}
   };
   while ((option = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
     switch (option) {
       case 'd':
-        // Ignore hidden debug
+      case 'r':
+        // Ignore hidden debug and root
         break;
       case 'h':
         opts->hflag = 1;
