@@ -1,0 +1,12 @@
+Usage: stuff list [options]
+
+List all of the tracked dotfiles
+
+All files discovered from the project root are listed using
+their system location with links highlighted in green.
+
+Options:
+  -h, --help           Print this help and exit
+  -l, --linked         Filter for files actually linked
+  -o, --owner          List the owner with the linked file
+

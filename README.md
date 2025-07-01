@@ -119,6 +119,36 @@ no persistent state in order to function properly. The only thing stuff relies
 on is an accurate local project structure, which is uses as a guide to add,
 view, and remove links in a given system directory.
 
+## Testing
+
+All tooling related to testing is custom, specific to this project. The current
+approach uses e2e (end-to-end) tests driven by a `./tests/run.sh` bash script.
+Adding tests is relatively self explanatory given current examples. Since
+implementation details for the tooling lives next to the tests themselves, some
+knowledge of the tooling implementation might be needed to make changes.
+
+Running e2e tests:
+
+``` sh
+# The tests script expects to be
+# run in the project folder
+cd ./tests/project
+../run.sh
+
+# Or more simply from the main
+# stuff repository directory
+make test
+```
+
+### Strategy
+
+We think e2e tests make the most sense to start with because stuff outputs
+something to `stdout` for any successful calls. We only test happy paths for
+now which we think should be enough. All output is checked using `diff` against
+expected output in the `./tests/output` directory. We note that calls to stuff
+create a lot of side effects (eg. system calls), which aren't mocked or tested
+directly, which the expected output assumes took place.
+
 ## License
 
 [stuff MIT License](LICENSE)

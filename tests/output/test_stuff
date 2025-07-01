@@ -1,0 +1,19 @@
+Usage: stuff <command> [options]
+
+Command-line dotfiles management
+
+stuff is a tool intended to make it simple to manage dotfiles
+using a repository with version control. There is a list of
+commands and options below that can be called with the additional
+`--help' flag for more information.
+
+Commands:
+  link                 Link local files or directories
+  list                 List all of the tracked dotfiles
+  unlink               Unlink local files or directories
+
+Options:
+  -h, --help           Print this help and exit
+  -v, --version        Print the current version number
+  -r, --root           Specify a path for another link location
+

@@ -1,0 +1,13 @@
+Usage: stuff link <path> [options]
+
+Link local files or directories
+
+Linked files and folders are mapped to their system location based
+on the project directory structure with files in the root of the
+project mapping to the root of the system.
+
+Options:
+  -h, --force          Link even if a link exists
+  -h, --help           Print this help and exit
+  -h, --help           Print this help and exit
+

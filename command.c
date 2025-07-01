@@ -238,11 +238,11 @@ int treat_entry(
         char *owner = get_link_owner(lpath);
         printf(GREEN("%s %s\n"), owner, lpath);
       } else {
-        printf(GREEN("%s\n"), lpath);
+        printf(GREEN("%s") "\n", lpath);
       }
     } else if (!glist_opts.lflag) {
       // Don't care about unlinked owners
-      printf("%s\n", lpath);
+      printf("%s\n", fpath);
     }
     free(lpath);
   }

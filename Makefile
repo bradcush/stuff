@@ -11,3 +11,6 @@ stuff: $(DEPS)
 
 clean:
 	rm -f usr/local/bin/stuff
+
+test:
+	cd ./tests/project && ../run.sh

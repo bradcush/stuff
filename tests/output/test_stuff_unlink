@@ -1,0 +1,11 @@
+Usage: stuff unlink <path> [options]
+
+Unlink local files or directories
+
+Linked files and folders are unmapped from their system location
+based on the project directory structure with files in the root of
+the project mapping to the root of the system.
+
+Options:
+  -h, --help           Print this help and exit
+
