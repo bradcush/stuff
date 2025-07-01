@@ -7,6 +7,6 @@
 
 typedef enum { NONE, LINK, LIST, UNLINK } command_t;
 
-void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts);
+void treat_command(char *command, int argc, char **argv);
 
 #endif

@@ -231,7 +231,8 @@ int treat_entry(
     char *lpath = make_link_path(fpath);
     int errlink = get_file_stats(lpath, &lsb);
     // Using fstat for both files and links to see if
-    // the actual file stats are the same for both
+    // the actual file stats are the same for both. This
+    // doesn't distinguish between a link and a file.
     if (!errlink && fsb.st_ino == lsb.st_ino) {
       if (glist_opts.oflag) {
         char *owner = get_link_owner(lpath);
@@ -251,14 +252,14 @@ int treat_entry(
 /**
  * Handle NONE command
  */
-void treat_none(int argc, char **argv, hidden_opts_t *hopts) {
+void treat_none(int argc, char **argv) {
   none_opts_t opts = {0, 0};
   int subind = 0;
   if (set_none_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting options\n");
     exit(EXIT_FAILURE);
   }
-  if (hopts->dflag) {
+  if (ghidden_opts.dflag) {
     print_none_options(argc, argv, &opts);
   }
   // Not supporting non-options
@@ -352,14 +353,14 @@ void add_link(char *fpath, char *lpath, link_opts_t *opts) {
 /**
  * Handle LINK command
  */
-void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
+void treat_link(int argc, char **argv) {
   link_opts_t opts = {0};
   int subind = 0;
   if (set_link_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting link options\n");
     exit(EXIT_FAILURE);
   }
-  if (hopts->dflag) {
+  if (ghidden_opts.dflag) {
     print_link_options(argc, argv, &opts);
   }
   // Current should be LINK and next should be local path
@@ -393,14 +394,14 @@ void treat_link(int argc, char **argv, hidden_opts_t *hopts) {
 /**
  * Handle UNLINK command
  */
-void treat_unlink(int argc, char **argv, hidden_opts_t *hopts) {
+void treat_unlink(int argc, char **argv) {
   unlink_opts_t opts = {0};
   int subind = 0;
   if (set_unlink_options(argc, argv, &opts, &subind) != 0) {
     fprintf(stderr, "Failure setting unlink options\n");
     exit(EXIT_FAILURE);
   }
-  if (hopts->dflag) {
+  if (ghidden_opts.dflag) {
     print_unlink_options(argc, argv, &opts);
   }
   // Current should be UNLINK and next should be local path
@@ -432,13 +433,13 @@ void treat_unlink(int argc, char **argv, hidden_opts_t *hopts) {
 /**
  * Handle LIST command
  */
-void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
+void treat_list(int argc, char **argv) {
   int subind = 0;
   if (set_list_options(argc, argv, &glist_opts, &subind) != 0) {
     fprintf(stderr, "Failure setting list options\n");
     exit(EXIT_FAILURE);
   }
-  if (hopts->dflag) {
+  if (ghidden_opts.dflag) {
     print_list_options(argc, argv, &glist_opts);
   }
   // Current should be LIST so next
@@ -463,19 +464,19 @@ void treat_list(int argc, char **argv, hidden_opts_t *hopts) {
 /**
  * Handle functionality specific to a command or lack thereof
  */
-void treat_command(char *command, int argc, char **argv, hidden_opts_t *hopts) {
+void treat_command(char *command, int argc, char **argv) {
   switch (map_command(command)) {
     case NONE:
-      treat_none(argc, argv, hopts);
+      treat_none(argc, argv);
       break;
     case LINK:
-      treat_link(argc, argv, hopts);
+      treat_link(argc, argv);
       break;
     case LIST:
-      treat_list(argc, argv, hopts);
+      treat_list(argc, argv);
       break;
     case UNLINK:
-      treat_unlink(argc, argv, hopts);
+      treat_unlink(argc, argv);
       break;
     default:
       fprintf(stderr, "Unreachable treat_command\n");

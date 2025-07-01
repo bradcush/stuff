@@ -16,6 +16,6 @@ int main(int argc, char **argv) {
   if (argc > subind) {
     command = argv[subind];
   }
-  treat_command(command, argc, argv, &ghidden_opts);
+  treat_command(command, argc, argv);
   return EXIT_SUCCESS;
 }
