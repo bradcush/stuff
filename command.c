@@ -98,7 +98,6 @@ void print_link_usage(char **argv) {
   );
   printf("Options:\n");
   printf("  -h, --force          Link even if a link exists\n");
-  printf("  -h, --help           Print this help and exit\n");
   printf("  -h, --help           Print this help and exit\n\n");
 }
 
@@ -387,7 +386,7 @@ void treat_link(int argc, char **argv) {
   char *fpath = argv[subind];
   char *lpath = make_link_path(fpath);
   add_link(fpath, lpath, &opts);
-  printf(GREEN("%s\n"), lpath);
+  printf(GREEN("%s") "\n", lpath);
   free(lpath);
 }
 

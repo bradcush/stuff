@@ -9,5 +9,4 @@ project mapping to the root of the system.
 Options:
   -h, --force          Link even if a link exists
   -h, --help           Print this help and exit
-  -h, --help           Print this help and exit
 
