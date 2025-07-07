@@ -17,6 +17,7 @@ declare -i SUITES_PASSED=0
 # Conditionally print a title with
 # a green check or red cross
 make_title() {
+  # Accounting tests count
   TESTS+=1
   [[ -n $1 ]] && icon="✗" || icon="✓"
   [[ -n $1 ]] && color="$ANSI_COLOR_RED" || color="$ANSI_COLOR_GREEN"
@@ -28,25 +29,29 @@ bold() {
   echo -ne "${ANSI_FORMAT_BOLD}$1${ANSI_RESET}"
 }
 
-# Account after each test
+# Accounting after each test
 process_result() {
   [[ -n $1 ]] || TESTS_PASSED+=1
   [[ -n $1 ]] && DID_SUITE_PASS=false
   [[ -n $1 ]] && echo "$1"
 }
 
-# Account after each suite
+# Accounting after each suite
 process_suite() {
   [[ $1 == true ]] && SUITES_PASSED+=1
   # Reset for the next one
   DID_SUITE_PASS=true
 }
 
+# Asserts whether a directory is empty which
+# in our case means it contains no links
 assert_empty_directory() {
   directory_contents="$(find "$1" -type l)"
   [[ -n $directory_contents ]] && echo "$directory_contents"
 }
 
+# Asserts that the root folder at the same level of
+# the current directory contains what we expect
 assert_root_contents() {
   diff <(find "../root" -type l) <(echo "$1")
 }
@@ -54,9 +59,13 @@ assert_root_contents() {
 # Test suite calling stuff without a
 # subcommand and different global flags
 suite_stuff() {
+  # Accounting suites count
   SUITES+=1
   echo "  stuff with no subcommand"
 
+  # Reusing the same command, file, and title variable names
+  # for each test even though their in the same scope so it's
+  # important to make sure these are updated in each test.
   command="stuff"
   file="test_stuff"
   output_stuff=$(diff <($command) "${OUTPUT_FOLDER}/${file}")

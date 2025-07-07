@@ -146,8 +146,8 @@ We think e2e tests make the most sense to start with because stuff outputs
 something to `stdout` for any successful calls. We only test happy paths for
 now which we think should be enough. All output is checked using `diff` against
 expected output in the `./tests/output` directory. We note that calls to stuff
-create a lot of side effects (eg. system calls), which aren't mocked or tested
-directly, which the expected output assumes took place.
+create a lot of side effects (eg. system calls), which we also test by checking
+the intended result of those side effects.
 
 ## License
 
