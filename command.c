@@ -1,7 +1,3 @@
-// Enable GNU extension required for FNM_EXTMATCH
-// We should replace this to not rely on GNU systems
-#define _GNU_SOURCE
-
 #include "command.h"
 #include "options/hidden.h"
 #include "options/link.h"
@@ -210,17 +206,34 @@ char *get_link_owner(char *lpath) {
 }
 
 /**
+ * Checks whether a file or folder is allowed to be displayed
+ * based on a set of glob patterns for directories we don't allow
+ */
+int is_directory_allowed(const char *fpath) {
+  int EMPTY_FLAGS = 0;
+  // Hardcoding hidden git and current directory but
+  // should move to persisted file input later
+  int ignore_patterns_length = 2;
+  char *ignore_patterns[] = {"./.git*", "."};
+  for (int i = 0; i < ignore_patterns_length; i++) {
+    char *pattern = ignore_patterns[i];
+    if (fnmatch(pattern, fpath, EMPTY_FLAGS) == 0) {
+      // Match with the ignork
+      // list means we ignore it
+      return 0;
+    }
+  }
+  return 1;
+}
+
+/**
  * Handle a file or directory entry based on
  * global list options and log to stdout
  */
 int treat_entry(
     const char *fpath, UNUSED const struct stat *sb, UNUSED int tflag
 ) {
-  // Hardcoding hidden git, stuff, and current directory
-  // but should move to persisted file input later
-  char *pattern = "!(./.git*|./.stuff*|.)";
-  int flags = FNM_EXTMATCH;
-  if (fnmatch(pattern, fpath, flags) == 0) {
+  if (is_directory_allowed(fpath)) {
     struct stat fsb, lsb;
     int errfile = get_file_stats(fpath, &fsb);
     if (errfile) {
