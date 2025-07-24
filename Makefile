@@ -6,11 +6,14 @@ DEPS = main.c \
 	options/unlink.c \
 	command.c
 
+BUILD_DIR = usr/local/bin
+
 stuff: $(DEPS)
-	gcc -g -Wall -Wextra $(DEPS) -o usr/local/bin/stuff
+	mkdir -p ${BUILD_DIR} && \
+	gcc -g -Wall -Wextra $(DEPS) -o ${BUILD_DIR}/stuff
 
 clean:
-	rm -f usr/local/bin/stuff
+	rm -f ${BUILD_DIR}/stuff
 
 test:
 	cd ./tests/project && ../run.sh
